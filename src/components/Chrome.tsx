@@ -1,21 +1,37 @@
 import type { ReactNode } from "react";
 import { Brain } from "lucide-react";
 
-export function Chrome({ children, headerAction }: { children: ReactNode; headerAction?: ReactNode }) {
+export function Chrome({
+  children,
+  headerAction,
+  onGuidedReflection,
+  onHome,
+}: {
+  children: ReactNode;
+  headerAction?: ReactNode;
+  onGuidedReflection?: () => void;
+  onHome?: () => void;
+}) {
   return (
     <div className="min-h-screen bg-ivory font-body text-ink selection:bg-challenge/20">
       <div className="mx-auto flex min-h-screen max-w-[1180px] flex-col px-5 sm:px-8">
         <header className="flex items-center justify-between py-7">
-          <div className="flex items-center gap-2.5">
+          <button
+            onClick={onHome}
+            className="flex items-center gap-2.5 hover:opacity-85 transition-opacity"
+          >
             <span className="grid size-7 place-items-center rounded-md bg-ink text-ivory">
               <Brain size={14} className="stroke-[1.8]" />
             </span>
             <span className="font-display text-[17px] tracking-tight">MirrorMind</span>
-          </div>
+          </button>
           <div className="flex items-center gap-5">
-            <span className="hidden text-[10px] uppercase tracking-[0.22em] text-muted-ink sm:block">
+            <button
+              onClick={onGuidedReflection}
+              className="hidden text-[10px] uppercase tracking-[0.22em] text-muted-ink sm:block hover:text-ink transition-colors"
+            >
               Guided reflection
-            </span>
+            </button>
             {headerAction}
           </div>
         </header>

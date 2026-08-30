@@ -147,6 +147,8 @@ function Index() {
 
   return (
     <Chrome
+      onGuidedReflection={() => setStage("journal")}
+      onHome={() => setStage("welcome")}
       headerAction={
         <button
           onClick={openReflections}
