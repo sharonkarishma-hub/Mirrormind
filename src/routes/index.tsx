@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { MessageSquareText, Zap, Send, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
 
 import { Chrome, toneBg, toneLabel, toneTape, toneText } from "@/components/Chrome";
 import {
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/")({
 });
 
 type Stage = "welcome" | "journal" | "loading" | "map" | "explore" | "summary" | "reflections";
-type ExploreStep = "question" | "mirror" | "insight";
+type ExploreStep = "choice" | "chat" | "question" | "mirror" | "insight";
 
 const STORAGE_KEY = "ajc.journal";
 
@@ -83,7 +84,7 @@ function Index() {
 
   function openTheme(next: Theme) {
     setTheme(next);
-    setStep("question");
+    setStep("choice");
     setAnswer("");
     setAffirm(null);
     setClosingChoice(null);
@@ -126,7 +127,7 @@ function Index() {
     setStage("journal");
     setThemes([]);
     setTheme(null);
-    setStep("question");
+    setStep("choice");
     setAnswer("");
     setAffirm(null);
     setClosingChoice(null);
@@ -183,6 +184,7 @@ function Index() {
           affirm={affirm}
           closingChoice={closingChoice}
           onAnswer={setAnswer}
+          onStepChange={setStep}
           onSubmitAnswer={() => {
             if (!answer.trim()) return;
             setStep("mirror");
@@ -195,6 +197,7 @@ function Index() {
           onBack={backToMap}
           onNew={startOver}
           onFinish={() => setStage("summary")}
+          journal={journal}
         />
       )}
 
@@ -453,12 +456,14 @@ function Explore({
   affirm,
   closingChoice,
   onAnswer,
+  onStepChange,
   onSubmitAnswer,
   onAffirm,
   onClosing,
   onBack,
   onNew,
   onFinish,
+  journal,
 }: {
   theme: Theme;
   step: ExploreStep;
@@ -466,104 +471,386 @@ function Explore({
   affirm: "yes" | "maybe" | "no" | null;
   closingChoice: string | null;
   onAnswer: (v: string) => void;
+  onStepChange: (v: ExploreStep) => void;
   onSubmitAnswer: () => void;
   onAffirm: (v: "yes" | "maybe" | "no") => void;
   onClosing: (v: string) => void;
   onBack: () => void;
   onNew: () => void;
   onFinish: () => void;
+  journal: string;
 }) {
-  return (
-    <section className="py-14 sm:py-20">
-      <div className="flex items-center justify-between gap-4">
-        <span
-          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-line ${toneText(theme.tone)}`}
-        >
-          <span className={`size-1.5 rounded-full ${toneBg(theme.tone)}`} />
-          Exploring · {theme.title}
-        </span>
-        <button
-          onClick={onBack}
-          className="text-xs text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
-        >
-          ← Back to reflection map
-        </button>
-      </div>
+  const [chatHistory, setChatHistory] = useState<{ sender: "user" | "ai"; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [chatTurn, setChatTurn] = useState<1 | 2 | 3>(1);
+  const [hasChosenChat, setHasChosenChat] = useState<boolean | null>(null);
 
-      <h2 className="jz jz-1 mt-8 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
-        Let's explore this a little further.
-      </h2>
+  // Reset local states when theme changes
+  useEffect(() => {
+    setChatHistory([]);
+    setChatInput("");
+    setIsTyping(false);
+    setChatTurn(1);
+    setHasChosenChat(null);
+  }, [theme.id]);
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <div className="jz jz-2 relative rounded-[20px] bg-card p-6 shadow-paper ring-1 ring-ink/5 sm:p-8">
-            <div
-              className={`absolute -top-2.5 left-8 h-5 w-14 rotate-[-3deg] rounded-[2px] shadow-sm ${toneTape(theme.tone)}`}
-            />
-            <p className="pt-1 font-display text-[19px] leading-relaxed text-ink">
-              {theme.question}
-            </p>
+  // Safety keyword detector (Ideation / Crisis support)
+  function checkSafety(text: string): boolean {
+    const keywords = [
+      "suicide",
+      "kill myself",
+      "self-harm",
+      "want to die",
+      "end my life",
+      "cut myself",
+      "hanging myself",
+      "overdose",
+      "harming myself",
+    ];
+    const lower = text.toLowerCase();
+    return keywords.some((k) => lower.includes(k));
+  }
 
-            {step === "question" ? (
-              <div className="mt-6">
-                <textarea
-                  rows={4}
-                  autoFocus
-                  value={answer}
-                  onChange={(e) => onAnswer(e.target.value)}
-                  placeholder="Take your time…"
-                  className="w-full resize-none border-t border-line/70 bg-transparent pt-5 text-base leading-[1.7] text-ink placeholder:text-muted-ink/60 focus:outline-none"
-                />
-                <button
-                  onClick={onSubmitAnswer}
-                  disabled={!answer.trim()}
-                  className="mt-4 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-ivory ring-1 ring-ink/10 transition-transform duration-300 hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-40"
-                >
-                  Continue
-                </button>
-              </div>
-            ) : (
-              <div className="mt-6 space-y-5 border-t border-line/70 pt-5">
-                <div className="rounded-[14px] bg-paper px-5 py-4">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-ink">You</p>
-                  <p className="mt-2 text-sm leading-relaxed text-ink">{answer}</p>
-                </div>
-                <p className="font-display text-[19px] leading-relaxed text-ink">{theme.mirror}</p>
+  // App feedback detector (Ensures app accepts user feedback with extreme positivity)
+  function checkAppFeedback(text: string): boolean {
+    const keywords = [
+      "this app sucks",
+      "sucks",
+      "useless",
+      "stupid app",
+      "hate this",
+      "worst app",
+      "waste of time",
+      "dumb app",
+    ];
+    const lower = text.toLowerCase();
+    return keywords.some((k) => lower.includes(k));
+  }
 
-                {step === "mirror" ? (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => onAffirm("yes")}
-                      className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-ivory transition-transform duration-300 hover:-translate-y-0.5"
-                    >
-                      Yes, that feels right
-                    </button>
-                    <button
-                      onClick={() => onAffirm("maybe")}
-                      className="rounded-full px-4 py-2 text-sm text-muted-ink ring-1 ring-line transition-transform duration-300 hover:-translate-y-0.5"
-                    >
-                      Maybe
-                    </button>
-                    <button
-                      onClick={() => onAffirm("no")}
-                      className="rounded-full px-4 py-2 text-sm text-muted-ink ring-1 ring-line transition-transform duration-300 hover:-translate-y-0.5"
-                    >
-                      Not really
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-sm italic leading-relaxed text-muted-ink">
-                    {affirm ? AFFIRM_RESPONSES[affirm] : ""}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+  // Initialize chat when turning to "chat" step
+  useEffect(() => {
+    if (step === "chat" && chatHistory.length === 0) {
+      setChatHistory([{ sender: "ai", text: theme.question }]);
+    }
+  }, [step, theme, chatHistory.length]);
+
+  // Push transcript to parent state
+  useEffect(() => {
+    if (chatTurn === 3 && chatHistory.length > 0) {
+      const transcript = chatHistory
+        .map((msg) => `${msg.sender === "user" ? "You" : "MirrorMind"}: ${msg.text}`)
+        .join("\n\n");
+      onAnswer(transcript);
+    }
+  }, [chatTurn, chatHistory, onAnswer]);
+
+  function handleSelectChoice(choice: "chat" | "insight") {
+    if (choice === "chat") {
+      setHasChosenChat(true);
+      onStepChange("chat");
+    } else {
+      setHasChosenChat(false);
+      onStepChange("insight");
+    }
+  }
+
+  function handleSendChat() {
+    if (!chatInput.trim() || isTyping) return;
+    const msg = chatInput.trim();
+    setChatInput("");
+
+    setChatHistory((prev) => [...prev, { sender: "user", text: msg }]);
+
+    // Safety Trigger
+    if (checkSafety(msg)) {
+      setIsTyping(true);
+      setTimeout(() => {
+        setIsTyping(false);
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            sender: "ai",
+            text: "It sounds like you are going through an incredibly difficult time. Please consider reaching out to a professional, a doctor, or talking with your loved ones. You do not have to carry this alone. If you are in immediate distress, please contact a local crisis support line or helpline right away.",
+          },
+        ]);
+        setChatTurn(3);
+      }, 1100);
+      return;
+    }
+
+    // App Criticism Feedback Trigger (Only positivity)
+    if (checkAppFeedback(msg)) {
+      setIsTyping(true);
+      setTimeout(() => {
+        setIsTyping(false);
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            sender: "ai",
+            text: "Thank you so much for sharing your feedback. I appreciate your honesty and am here to support your reflection in whatever way feels most conducive and helpful for you.",
+          },
+        ]);
+
+        // After a delay, proceed with the actual coaching step
+        setTimeout(() => {
+          setIsTyping(true);
+          setTimeout(() => {
+            setIsTyping(false);
+            if (chatTurn === 1) {
+              setChatHistory((prev) => [...prev, { sender: "ai", text: theme.followup }]);
+              setChatTurn(2);
+            } else if (chatTurn === 2) {
+              setChatHistory((prev) => [...prev, { sender: "ai", text: theme.chatMirror }]);
+              setChatTurn(3);
+            }
+          }, 1200);
+        }, 1800);
+      }, 1000);
+      return;
+    }
+
+    // Normal Turn transitions
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      if (chatTurn === 1) {
+        setChatHistory((prev) => [...prev, { sender: "ai", text: theme.followup }]);
+        setChatTurn(2);
+      } else if (chatTurn === 2) {
+        setChatHistory((prev) => [...prev, { sender: "ai", text: theme.chatMirror }]);
+        setChatTurn(3);
+      }
+    }, 1200);
+  }
+
+  // Detect global safety warnings
+  const showSafetyWarning =
+    checkSafety(journal) || chatHistory.some((msg) => msg.sender === "user" && checkSafety(msg.text));
+
+  // CHOICE VIEW
+  if (step === "choice") {
+    return (
+      <section className="py-14 sm:py-20">
+        <div className="flex items-center justify-between gap-4">
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-line ${toneText(theme.tone)}`}
+          >
+            <span className={`size-1.5 rounded-full ${toneBg(theme.tone)}`} />
+            Exploring · {theme.title}
+          </span>
+          <button
+            onClick={onBack}
+            className="text-xs text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
+          >
+            ← Back to reflection map
+          </button>
         </div>
 
-        <div className="lg:col-span-5">
-          {step === "insight" ? (
-            <div className="space-y-6">
+        <h2 className="jz jz-1 mt-8 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
+          How would you like to explore this?
+        </h2>
+        <p className="mt-4 max-w-[50ch] text-sm text-muted-ink">
+          Choose to talk it through in an interactive guided conversation, or immediately view your compiled reflection note.
+        </p>
+
+        <div className="mt-8 grid gap-6 max-w-[700px] md:grid-cols-2">
+          {/* Card 1: Chat */}
+          <button
+            onClick={() => handleSelectChoice("chat")}
+            className="flex flex-col text-left p-6 rounded-[20px] bg-card hover:bg-paper border border-line/50 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer hover:-translate-y-0.5 group"
+          >
+            <div className="size-10 rounded-full bg-ink text-ivory flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
+              <MessageSquareText size={20} className="stroke-[1.8]" />
+            </div>
+            <h3 className="font-display text-xl text-ink font-semibold">Talk it through</h3>
+            <p className="mt-2 text-xs text-muted-ink leading-relaxed">
+              Start a brief interactive guided conversation. Share your raw feelings and receive targeted, supportive questions to explore deeper.
+            </p>
+            <div className="mt-auto pt-6 flex items-center text-xs font-semibold text-ink gap-1 group-hover:gap-2 transition-all">
+              Start guided conversation <ArrowRight size={12} />
+            </div>
+          </button>
+
+          {/* Card 2: Direct Note */}
+          <button
+            onClick={() => handleSelectChoice("insight")}
+            className="flex flex-col text-left p-6 rounded-[20px] bg-card hover:bg-paper border border-line/50 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer hover:-translate-y-0.5 group"
+          >
+            <div className="size-10 rounded-full bg-uncertain/20 text-uncertain flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
+              <Zap size={20} className="stroke-[1.8]" fill="currentColor" />
+            </div>
+            <h3 className="font-display text-xl text-ink font-semibold">Just reflect</h3>
+            <p className="mt-2 text-xs text-muted-ink leading-relaxed">
+              Skip the conversation entirely. Directly retrieve the synthesized reflection, including insights and a practical action step.
+            </p>
+            <div className="mt-auto pt-6 flex items-center text-xs font-semibold text-ink gap-1 group-hover:gap-2 transition-all">
+              View reflection note <ArrowRight size={12} />
+            </div>
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  // INTERACTIVE CHAT VIEW
+  if (step === "chat") {
+    return (
+      <section className="py-14 sm:py-20">
+        <div className="flex items-center justify-between gap-4">
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-line ${toneText(theme.tone)}`}
+          >
+            <span className={`size-1.5 rounded-full ${toneBg(theme.tone)}`} />
+            Exploring · {theme.title}
+          </span>
+          <button
+            onClick={onBack}
+            className="text-xs text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
+          >
+            ← Back to reflection map
+          </button>
+        </div>
+
+        <h2 className="jz jz-1 mt-8 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
+          Interactive Conversation
+        </h2>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-12">
+          {/* Chat log column */}
+          <div className="lg:col-span-8 flex flex-col min-h-[450px] bg-paper border border-line/70 rounded-[24px] p-4 sm:p-6 justify-between">
+            <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2">
+              {chatHistory.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex flex-col max-w-[85%] ${
+                    msg.sender === "user" ? "ml-auto items-end" : "mr-auto items-start"
+                  }`}
+                >
+                  <span className="text-[9px] uppercase tracking-wider text-muted-ink/80 mb-1 px-1">
+                    {msg.sender === "user" ? "User" : "MirrorMind"}
+                  </span>
+                  <div
+                    className={`px-5 py-3.5 rounded-[18px] text-sm leading-relaxed ${
+                      msg.sender === "user"
+                        ? "bg-[oklch(0.235_0.013_75)] text-ivory rounded-tr-sm shadow-sm"
+                        : "bg-card text-ink rounded-tl-sm shadow-sm border border-line/40"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+
+              {isTyping && (
+                <div className="mr-auto items-start flex flex-col max-w-[80%]">
+                  <span className="text-[9px] uppercase tracking-wider text-muted-ink/80 mb-1 px-1">
+                    MirrorMind
+                  </span>
+                  <div className="px-5 py-3 rounded-[18px] bg-card text-muted-ink text-xs italic rounded-tl-sm border border-line/40 flex items-center gap-1.5 animate-pulse">
+                    <span className="size-1.5 rounded-full bg-muted-ink animate-bounce" />
+                    <span className="size-1.5 rounded-full bg-muted-ink animate-bounce delay-100" />
+                    <span className="size-1.5 rounded-full bg-muted-ink animate-bounce delay-200" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Input Bar */}
+            <div className="mt-6 border-t border-line/50 pt-4">
+              {chatTurn < 3 ? (
+                <div className="flex gap-2 items-end">
+                  <textarea
+                    rows={2}
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendChat();
+                      }
+                    }}
+                    placeholder="Share your thoughts..."
+                    disabled={isTyping}
+                    className="flex-1 resize-none bg-card border border-line/50 rounded-[14px] px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ink/20 disabled:opacity-60 placeholder:text-muted-ink/50"
+                  />
+                  <button
+                    onClick={handleSendChat}
+                    disabled={!chatInput.trim() || isTyping}
+                    className="size-10 rounded-full bg-ink text-ivory flex items-center justify-center shrink-0 transition-transform active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                  >
+                    <Send size={15} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex justify-center py-2 animate-bounce">
+                  <button
+                    onClick={() => onStepChange("insight")}
+                    className="rounded-full bg-ink px-6 py-3 text-sm font-semibold text-ivory ring-1 ring-ink/10 transition-transform duration-300 hover:-translate-y-0.5 shadow-md flex items-center gap-2 cursor-pointer"
+                  >
+                    See Reflection Note <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right helper column */}
+          <div className="lg:col-span-4 h-full">
+            <div className="rounded-[20px] bg-card p-6 border border-line/40 shadow-sm text-center flex flex-col items-center justify-center min-h-[300px]">
+              <Sparkles className="size-7 text-muted-ink mb-4 opacity-80" />
+              <h4 className="font-display text-base text-ink font-semibold">A space to process</h4>
+              <p className="mt-2 text-xs text-muted-ink leading-relaxed max-w-[28ch]">
+                Take your time to reply. We are keeping track of your reflections and will synthesize them on the next page.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // SYNTHESIS & INSIGHT VIEW
+  if (step === "insight") {
+    // Choice 1: Direct reflection note (clean, centered, 1 column)
+    if (hasChosenChat === false) {
+      return (
+        <section className="py-14 sm:py-20">
+          <div className="max-w-[700px] mx-auto">
+            <div className="flex items-center justify-between gap-4">
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-line ${toneText(theme.tone)}`}
+              >
+                <span className={`size-1.5 rounded-full ${toneBg(theme.tone)}`} />
+                Exploring · {theme.title}
+              </span>
+              <button
+                onClick={onBack}
+                className="text-xs text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
+              >
+                ← Back to reflection map
+              </button>
+            </div>
+
+            <h2 className="jz jz-1 mt-8 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
+              Your Reflection Note
+            </h2>
+
+            {/* Safety Warning Ideation Banner */}
+            {showSafetyWarning && (
+              <div className="mt-8 p-5 rounded-[18px] bg-challenge/10 border border-challenge/30 text-ink flex gap-4 items-start animate-pulse">
+                <AlertCircle className="size-6 text-challenge shrink-0 mt-0.5 animate-bounce" />
+                <div>
+                  <h4 className="font-semibold text-challenge text-sm">We care about you</h4>
+                  <p className="mt-1 text-xs text-muted-ink leading-relaxed">
+                    It sounds like you are carrying a lot of weight right now. Please know that you do not have to go through this alone. Consider speaking with a doctor, consulting a medical professional, or sharing this with loved ones. If you need immediate support, crisis lines are available to talk 24/7.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8 space-y-6">
+              {/* Insight Card */}
               <div className="jz jz-1 relative rounded-[18px] bg-paper p-6 ring-1 ring-ink/5">
                 <div className="absolute -top-2.5 left-8 h-5 w-14 rotate-[-3deg] rounded-[2px] bg-challenge/35 shadow-sm" />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-muted-ink">
@@ -574,6 +861,7 @@ function Explore({
                 </p>
               </div>
 
+              {/* Action Card */}
               <div className="jz jz-2 relative rounded-[18px] bg-card p-6 shadow-card ring-1 ring-ink/5">
                 <div className="absolute -top-2.5 left-8 h-5 w-14 rotate-[3deg] rounded-[2px] bg-positive/40 shadow-sm" />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-muted-ink">
@@ -584,14 +872,15 @@ function Explore({
                 </p>
               </div>
 
+              {/* Closing / Affirmations */}
               <div className="jz jz-3 border-t border-line/70 pt-6">
-                <p className="max-w-[34ch] text-sm text-ink">{theme.closing}</p>
+                <p className="max-w-[45ch] text-sm text-ink">{theme.closing}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {["Yes", "Maybe", "Not really"].map((label) => (
                     <button
                       key={label}
                       onClick={() => onClosing(label)}
-                      className={`rounded-full px-4 py-2 text-sm transition-transform duration-300 hover:-translate-y-0.5 ${
+                      className={`rounded-full px-5 py-2.5 text-sm transition-transform duration-300 hover:-translate-y-0.5 cursor-pointer ${
                         closingChoice === label
                           ? "bg-ink text-ivory"
                           : "text-muted-ink ring-1 ring-line"
@@ -606,44 +895,178 @@ function Explore({
                     Noted — that's enough to work with for today.
                   </p>
                 )}
-                <div className="mt-6 flex flex-col items-start gap-3">
+
+                <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
                   <button
                     onClick={onFinish}
-                    className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-ivory ring-1 ring-ink/10 transition-transform duration-300 hover:-translate-y-0.5"
+                    className="w-full sm:w-auto rounded-full bg-ink px-6 py-3 text-sm font-semibold text-ivory ring-1 ring-ink/10 transition-transform duration-300 hover:-translate-y-0.5 text-center cursor-pointer"
                   >
                     See your reflection today
                   </button>
                   <button
                     onClick={onBack}
-                    className="text-sm text-ink underline decoration-line underline-offset-4"
+                    className="text-sm text-ink underline decoration-line underline-offset-4 cursor-pointer"
                   >
-                    Explore another part of my day
+                    Explore another theme
                   </button>
                   <button
                     onClick={onNew}
-                    className="text-sm text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
+                    className="text-sm text-muted-ink underline decoration-line underline-offset-4 hover:text-ink cursor-pointer"
                   >
-                    Start a new reflection
+                    Start new reflection
                   </button>
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="jz jz-3 rounded-[18px] border border-dashed border-line p-6">
-              <span className="text-[10px] uppercase tracking-[0.2em] text-muted-ink">
-                Next
-              </span>
-              <p className="mt-3 text-sm leading-relaxed text-muted-ink">
-                Once we understand this a little better, you'll get one observation about what may be
-                going on and one small step to try — nothing more. We stay with{" "}
-                {theme.title.toLowerCase()} only.
+          </div>
+        </section>
+      );
+    }
+
+    // Choice 2: Guided chat transcript visible (2 columns: left chat transcript, right summaries)
+    return (
+      <section className="py-14 sm:py-20">
+        <div className="flex items-center justify-between gap-4">
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-line ${toneText(theme.tone)}`}
+          >
+            <span className={`size-1.5 rounded-full ${toneBg(theme.tone)}`} />
+            Exploring · {theme.title}
+          </span>
+          <button
+            onClick={onBack}
+            className="text-xs text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
+          >
+            ← Back to reflection map
+          </button>
+        </div>
+
+        <h2 className="jz jz-1 mt-8 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
+          Coaching Summary
+        </h2>
+
+        {/* Safety Warning Ideation Banner */}
+        {showSafetyWarning && (
+          <div className="mt-6 p-5 rounded-[18px] bg-challenge/10 border border-challenge/30 text-ink flex gap-4 items-start animate-pulse">
+            <AlertCircle className="size-6 text-challenge shrink-0 mt-0.5 animate-bounce" />
+            <div>
+              <h4 className="font-semibold text-challenge text-sm">We care about you</h4>
+              <p className="mt-1 text-xs text-muted-ink leading-relaxed">
+                It sounds like you are carrying a lot of weight right now. Please know that you do not have to go through this alone. Consider speaking with a doctor, consulting a medical professional, or sharing this with loved ones. If you need immediate support, crisis lines are available to talk 24/7.
               </p>
             </div>
-          )}
+          </div>
+        )}
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-12">
+          {/* Left Column: Chat history static transcript */}
+          <div className="lg:col-span-6 flex flex-col bg-paper border border-line/60 rounded-[24px] p-5 max-h-[500px] overflow-y-auto">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-ink mb-4 border-b border-line/40 pb-2">
+              Conversation History
+            </span>
+            <div className="space-y-4">
+              {chatHistory.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex flex-col max-w-[90%] ${
+                    msg.sender === "user" ? "ml-auto items-end" : "mr-auto items-start"
+                  }`}
+                >
+                  <span className="text-[8px] uppercase tracking-wider text-muted-ink/75 mb-0.5">
+                    {msg.sender === "user" ? "You" : "MirrorMind"}
+                  </span>
+                  <div
+                    className={`px-4 py-2.5 rounded-[14px] text-xs leading-relaxed ${
+                      msg.sender === "user"
+                        ? "bg-[oklch(0.235_0.013_75)] text-ivory rounded-tr-none shadow-sm"
+                        : "bg-card text-ink rounded-tl-none border border-line/30"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Column: Summaries and buttons */}
+          <div className="lg:col-span-6 space-y-6">
+            {/* Insight Card */}
+            <div className="jz jz-1 relative rounded-[18px] bg-paper p-6 ring-1 ring-ink/5">
+              <div className="absolute -top-2.5 left-8 h-5 w-14 rotate-[-3deg] rounded-[2px] bg-challenge/35 shadow-sm" />
+              <span className="text-[10px] uppercase tracking-[0.2em] text-muted-ink">
+                What I noticed
+              </span>
+              <p className="mt-3 font-display text-[17px] italic leading-relaxed text-ink/90">
+                {theme.insight}
+              </p>
+            </div>
+
+            {/* Action Card */}
+            <div className="jz jz-2 relative rounded-[18px] bg-card p-6 shadow-card ring-1 ring-ink/5">
+              <div className="absolute -top-2.5 left-8 h-5 w-14 rotate-[3deg] rounded-[2px] bg-positive/40 shadow-sm" />
+              <span className="text-[10px] uppercase tracking-[0.2em] text-muted-ink">
+                One thing you could try
+              </span>
+              <p className="mt-3 font-display text-[17px] leading-relaxed text-ink">
+                {theme.action}
+              </p>
+            </div>
+
+            {/* Closing / Affirmations */}
+            <div className="jz jz-3 border-t border-line/70 pt-6">
+              <p className="max-w-[45ch] text-sm text-ink">{theme.closing}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {["Yes", "Maybe", "Not really"].map((label) => (
+                  <button
+                    key={label}
+                    onClick={() => onClosing(label)}
+                    className={`rounded-full px-5 py-2.5 text-sm transition-transform duration-300 hover:-translate-y-0.5 cursor-pointer ${
+                      closingChoice === label
+                        ? "bg-ink text-ivory"
+                        : "text-muted-ink ring-1 ring-line"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {closingChoice && (
+                <p className="mt-4 text-xs italic text-muted-ink">
+                  Noted — that's enough to work with for today.
+                  {affirm && <span className="block mt-1 font-normal text-muted-ink">{AFFIRM_RESPONSES[affirm]}</span>}
+                </p>
+              )}
+
+              <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  onClick={onFinish}
+                  className="w-full sm:w-auto rounded-full bg-ink px-6 py-3 text-sm font-semibold text-ivory ring-1 ring-ink/10 transition-transform duration-300 hover:-translate-y-0.5 text-center cursor-pointer"
+                >
+                  See your reflection today
+                </button>
+                <button
+                  onClick={onBack}
+                  className="text-sm text-ink underline decoration-line underline-offset-4 cursor-pointer"
+                >
+                  Explore another theme
+                  </button>
+                <button
+                  onClick={onNew}
+                  className="text-sm text-muted-ink underline decoration-line underline-offset-4 hover:text-ink cursor-pointer"
+                >
+                  Start new reflection
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
-  );
+      </section>
+    );
+  }
+
+  // Fallback
+  return null;
 }
 
 /* ---------------------------------- 07 ---------------------------------- */

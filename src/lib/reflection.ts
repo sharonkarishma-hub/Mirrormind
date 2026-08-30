@@ -7,8 +7,12 @@ export type Theme = {
   tone: Tone;
   /** opening reflection question */
   question: string;
+  /** follow-up question for interactive chat */
+  followup: string;
   /** mirrored understanding shown after the user answers */
   mirror: string;
+  /** final chat response before summary */
+  chatMirror: string;
   insight: string;
   action: string;
   closing: string;
@@ -26,8 +30,12 @@ const PRESENTATION: Theme = {
   tone: "challenge",
   question:
     "You mentioned worrying about whether people thought you were prepared. What part of being judged feels most uncomfortable?",
+  followup:
+    "It's natural to feel that way. If someone did think you weren't prepared, what is the worst thing that would happen in your mind?",
   mirror:
     "So the weight may be sitting in the imagined verdict rather than in the presentation itself. Does that feel accurate?",
+  chatMirror:
+    "It sounds like the fear is about losing credibility, rather than just the presentation itself. You are holding yourself to a very high standard.",
   insight:
     "It sounds like the pressure may be coming less from the presentation itself and more from how you imagine others evaluating you.",
   action:
@@ -43,8 +51,12 @@ const FRIENDSHIP: Theme = {
   tone: "uncertain",
   question:
     "You noticed that your friend seemed quiet and started wondering whether you had done something wrong. What made you connect their mood to yourself?",
+  followup:
+    "Overthinking a friend's behavior is common. Have they ever been quiet or distant in the past for reasons completely unrelated to you?",
   mirror:
     "So a moment of not knowing turned quite quickly into a question about yourself. Does that feel accurate?",
+  chatMirror:
+    "It sounds like you care deeply about this friendship, which is why your mind jumps to trying to fix it immediately.",
   insight:
     "It sounds like uncertainty quickly turned into self-questioning, even though you didn't have clear evidence that something was wrong.",
   action:
@@ -59,9 +71,13 @@ const ASSIGNMENT: Theme = {
   subtitle: "Feeling overwhelmed and avoiding starting",
   tone: "challenge",
   question:
-    "You mentioned that you keep postponing the assignment even though you know it's due Friday. When you think about starting it, what feels hardest?",
+    "You mentioned that you keep postponing the assignment even though you know it's Friday. When you think about starting it, what feels hardest?",
+  followup:
+    "You've handled similar assignments before. What feels different this time around that is causing this friction?",
   mirror:
     "So the difficulty may be getting started rather than actually not having enough time. Does that feel accurate?",
+  chatMirror:
+    "It sounds like the workload is manageable — fear of underperforming is what's making this feel larger and harder to initiate.",
   insight:
     "It sounds like the main barrier isn't lack of time. The assignment feels overwhelming because you're thinking about the entire workload at once, which makes avoiding it temporarily easier.",
   action:
@@ -77,8 +93,12 @@ const WORKOUT: Theme = {
   tone: "positive",
   question:
     "You noticed that you felt much better after your workout. What do you think changed for you?",
+  followup:
+    "Physical resets are very powerful. How can you carry this clear-headed feeling into the rest of your day?",
   mirror:
     "So movement seemed to shift something before the day itself changed. Does that feel accurate?",
+  chatMirror:
+    "It sounds like physical activity is a reliable tool for you to clear mental clutter and reset your emotional state.",
   insight:
     "Your mood seemed to shift after doing something physical, suggesting that movement may be a useful reset when the day feels mentally heavy.",
   action:
@@ -122,8 +142,12 @@ const GENERIC: Theme = {
   tone: "uncertain",
   question:
     "Something in what you wrote seems to have stayed with you. When you think about it now, what part feels most alive?",
+  followup:
+    "Why do you think that specific part is staying with you right now instead of other things?",
   mirror:
     "So it sounds like this matters more than it first appeared. Does that feel accurate?",
+  chatMirror:
+    "It sounds like this is holding some important meaning for you to process, and naming it is the first step.",
   insight:
     "Based on what you shared, it sounds like this experience is still unresolved \u2014 not because it's dramatic, but because you haven't had a chance to name what it meant to you.",
   action:
