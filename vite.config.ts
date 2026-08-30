@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  base: process.env.NODE_ENV === "production" ? "/self-discovery-aid/" : "/",
+  base: process.env.NODE_ENV === "production" ? "/Mirrormind/" : "/",
   plugins: [
     tsconfigPaths(),
     tailwindcss(),
