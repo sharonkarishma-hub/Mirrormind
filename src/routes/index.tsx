@@ -54,12 +54,6 @@ function Index() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setJournal(saved);
-    } catch {
-      /* storage unavailable — the session simply starts empty */
-    }
     setSaved(loadReflections());
   }, []);
 
@@ -71,11 +65,6 @@ function Index() {
 
   function persist(text: string) {
     setJournal(text);
-    try {
-      localStorage.setItem(STORAGE_KEY, text);
-    } catch {
-      /* ignore */
-    }
   }
 
   function reflect() {
