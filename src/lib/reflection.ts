@@ -128,6 +128,69 @@ const RELATIONSHIPS: Theme = {
   subtitle: "Uncertainty or overthinking",
 };
 
+const GOOD_DAY: Theme = {
+  id: "good-day",
+  title: "A Positive Day",
+  subtitle: "A moment of joy, gratitude, or accomplishment",
+  tone: "positive",
+  question:
+    "It's wonderful to hear your day was positive! When you look back at today, what specific moment or thought made it feel that way?",
+  followup:
+    "Often we let good moments pass by quickly without dwelling on them. How did that moment make you feel about your own capabilities or connection to others?",
+  mirror:
+    "So it sounds like you really allowed yourself to experience that positive moment fully today. Does that feel accurate?",
+  chatMirror:
+    "It sounds like you really allowed yourself to experience that positive moment fully, which is a great practice for building resilience.",
+  insight:
+    "Taking a moment to notice and reflect on positive experiences helps shift our emotional baseline and builds lasting feelings of competence and gratitude.",
+  action:
+    "Savor this feeling tonight by writing down one thing you did that contributed to this good day, and see if you can repeat it tomorrow.",
+  closing: "Would focusing on what went well today make you feel more confident about tomorrow?",
+  takeaway: "Savoring positive moments trains your mind to notice and create them more easily.",
+};
+
+const STRESSED_HEAVY: Theme = {
+  id: "stressed-heavy",
+  title: "Stress & Heavy Feelings",
+  subtitle: "Feeling weighed down, anxious, or exhausted",
+  tone: "challenge",
+  question:
+    "I hear you, and it's completely okay to feel heavy or stressed. When you look at what's stressing you, what feels like the heaviest part right now?",
+  followup:
+    "Does this pressure feel like it's coming from outside expectations (like work, school, or friends), or is it mostly coming from your own standards?",
+  mirror:
+    "So it sounds like the weight is compounded by how much you care about getting it right. Does that feel accurate?",
+  chatMirror:
+    "It sounds like you are carrying a lot of responsibility on your shoulders right now, which makes even starting feel twice as heavy.",
+  insight:
+    "Stress can make us feel like we have to solve the entire future at once, which leads to freeze and exhaustion. Letting go of the full picture temporarily can restore your energy.",
+  action:
+    "Tonight, give yourself permission to step away completely. Choose one small 5-minute task for tomorrow, and commit only to that.",
+  closing: "Would focusing on just one tiny task tomorrow make the weight feel more manageable?",
+  takeaway: "You don't have to carry the whole load at once. One tiny step is enough to shift the energy.",
+};
+
+const QUIET_STILL: Theme = {
+  id: "quiet-still",
+  title: "A Quiet / Neutral Day",
+  subtitle: "A normal, slow, routine, or quiet day",
+  tone: "uncertain",
+  question:
+    "A quiet or slow day has its own pace. Did today feel like a restful pause, or did it feel a bit flat or routine for you?",
+  followup:
+    "What is one small thing that would have brought a bit more energy, joy, or spark to your day today?",
+  mirror:
+    "So today was less about big events and more about just sitting with the routine. Does that feel accurate?",
+  chatMirror:
+    "It sounds like you're in a neutral space today, which is a perfect window to check in on what your body and mind actually need next.",
+  insight:
+    "Routine days can feel boring, but they are also a blank canvas. They offer a rare, low-stakes space to reset and choose your own speed without external pressure.",
+  action:
+    "Do one tiny thing that is outside your normal routine tonight—like listening to a new song, walking a new path, or writing down a curiosity.",
+  closing: "Would introducing a tiny, unexpected change in your routine bring a bit of freshness to your day?",
+  takeaway: "Quiet, simple days are perfect opportunities to choose your own slow, restful pace.",
+};
+
 const WELLBEING: Theme = {
   ...WORKOUT,
   id: "wellbeing",
@@ -216,6 +279,21 @@ const MATCHERS: { theme: Theme; keywords: string[] }[] = [
   },
 ];
 
+const EMOTION_MATCHERS: { theme: Theme; keywords: string[] }[] = [
+  {
+    theme: GOOD_DAY,
+    keywords: ["good", "great", "happy", "super", "awesome", "proud", "fun", "accomplished", "love", "amazing", "well", "nice", "cheerful", "excited", "glad", "joy", "peaceful", "calm"],
+  },
+  {
+    theme: STRESSED_HEAVY,
+    keywords: ["stress", "stressed", "anxious", "anxiety", "bad", "sad", "tired", "exhausted", "heavy", "overwhelmed", "terrible", "hard", "difficult", "struggling", "hate", "angry", "furious", "annoyed", "frustrated", "sick", "pain", "worry", "worried"],
+  },
+  {
+    theme: QUIET_STILL,
+    keywords: ["nothing", "okay", "fine", "not much", "dunno", "routine", "quiet", "normal", "boring", "slow", "average", "still", "standard", "ordinary"],
+  },
+];
+
 const EXAMPLE_SIGNATURE = ["presentation", "friend", "assignment", "gym"];
 
 function isExampleJournal(text: string) {
@@ -229,12 +307,27 @@ export function analyzeJournal(text: string): Theme[] {
   }
 
   const t = text.toLowerCase();
-  const matched = MATCHERS.filter(({ keywords }) =>
+  
+  // 1. Check for specific topic matchers
+  const matchedTopics = MATCHERS.filter(({ keywords }) =>
     keywords.some((k) => t.includes(k)),
   ).map(({ theme }) => theme);
 
-  if (matched.length === 0) return [GENERIC];
-  return matched.slice(0, 4);
+  if (matchedTopics.length > 0) {
+    return matchedTopics.slice(0, 4);
+  }
+
+  // 2. If no specific topics matched, check for emotional vibe matchers
+  const matchedEmotions = EMOTION_MATCHERS.filter(({ keywords }) =>
+    keywords.some((k) => t.includes(k)),
+  ).map(({ theme }) => theme);
+
+  if (matchedEmotions.length > 0) {
+    return [matchedEmotions[0]];
+  }
+
+  // 3. Fallback to generic
+  return [GENERIC];
 }
 
 export const AFFIRM_RESPONSES: Record<string, string> = {
