@@ -618,12 +618,14 @@ function Explore({
   const [isTyping, setIsTyping] = useState(false);
   const [chatTurn, setChatTurn] = useState<number>(0);
 
-  // Reset local states when theme changes
+  // Reset local states when theme changes, but not in the middle of a chat session
   useEffect(() => {
-    setChatHistory([]);
-    setChatInput("");
-    setIsTyping(false);
-    setChatTurn(0);
+    if (chatTurn === 0 || chatHistory.length === 0) {
+      setChatHistory([]);
+      setChatInput("");
+      setIsTyping(false);
+      setChatTurn(0);
+    }
   }, [theme.id]);
 
   // Safety keyword detector (Ideation / Crisis support)
@@ -686,6 +688,20 @@ function Explore({
       onAnswer(transcript);
     }
   }, [chatTurn, chatHistory, onAnswer]);
+
+  function handleStartReflectingEarly() {
+    if (chatTurn === 1) {
+      const lastUserMsg = [...chatHistory].reverse().find((m) => m.sender === "user");
+      if (lastUserMsg) {
+        const matched = analyzeJournal(lastUserMsg.text);
+        const matchedTheme = matched.length ? matched[0] : SOMETHING_ELSE;
+        onThemeChange(matchedTheme);
+        onJournalChange(lastUserMsg.text);
+      }
+    }
+    setChatTurn(4);
+    onStepChange("insight");
+  }
 
   function advanceChat(msg: string) {
     if (chatTurn === 0) {
@@ -848,31 +864,41 @@ function Explore({
             </div>
 
             {/* Input Bar */}
-            <div className="mt-6 border-t border-line/50 pt-4">
+            <div className="mt-6 border-t border-line/50 pt-4 flex flex-col gap-3">
               {chatTurn < 4 ? (
-                <div className="flex gap-2 items-end">
-                  <textarea
-                    rows={2}
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendChat();
-                      }
-                    }}
-                    placeholder="Share your thoughts..."
-                    disabled={isTyping}
-                    className="flex-1 resize-none bg-card border border-line/50 rounded-[14px] px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ink/20 disabled:opacity-60 placeholder:text-muted-ink/50"
-                  />
-                  <button
-                    onClick={handleSendChat}
-                    disabled={!chatInput.trim() || isTyping}
-                    className="size-10 rounded-full bg-ink text-ivory flex items-center justify-center shrink-0 transition-transform active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                  >
-                    <Send size={15} />
-                  </button>
-                </div>
+                <>
+                  <div className="flex gap-2 items-end">
+                    <textarea
+                      rows={2}
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendChat();
+                        }
+                      }}
+                      placeholder="Share your thoughts..."
+                      disabled={isTyping}
+                      className="flex-1 resize-none bg-card border border-line/50 rounded-[14px] px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ink/20 disabled:opacity-60 placeholder:text-muted-ink/50"
+                    />
+                    <button
+                      onClick={handleSendChat}
+                      disabled={!chatInput.trim() || isTyping}
+                      className="size-10 rounded-full bg-ink text-ivory flex items-center justify-center shrink-0 transition-transform active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                    >
+                      <Send size={15} />
+                    </button>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleStartReflectingEarly}
+                      className="rounded-full px-4 py-1.5 border border-line/60 text-xs text-muted-ink hover:text-ink hover:bg-card transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Zap size={12} fill="currentColor" className="text-uncertain" /> Start reflecting
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div className="flex justify-center py-2 animate-bounce">
                   <button
