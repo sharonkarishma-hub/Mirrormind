@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { MessageSquareText, Zap, Send, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
+import { MessageSquareText, Zap, Send, ArrowRight, Sparkles, AlertCircle, ArrowLeft, Home as HomeIcon } from "lucide-react";
 
 import { Chrome, toneBg, toneLabel, toneTape, toneText } from "@/components/Chrome";
 import {
@@ -34,8 +34,8 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type Stage = "welcome" | "journal" | "loading" | "map" | "explore" | "summary" | "reflections";
-type ExploreStep = "choice" | "chat" | "question" | "mirror" | "insight";
+type Stage = "welcome" | "choice" | "journal" | "loading" | "map" | "explore" | "summary" | "reflections";
+type ExploreStep = "chat" | "insight";
 
 const STORAGE_KEY = "ajc.journal";
 
@@ -44,7 +44,9 @@ function Index() {
   const [journal, setJournal] = useState("");
   const [themes, setThemes] = useState<Theme[]>([]);
   const [theme, setTheme] = useState<Theme | null>(null);
-  const [step, setStep] = useState<ExploreStep>("question");
+  const [step, setStep] = useState<ExploreStep>("chat");
+  const [mode, setMode] = useState<"chat" | "reflect">("chat");
+  const [nickname, setNickname] = useState("");
   const [answer, setAnswer] = useState("");
   const [affirm, setAffirm] = useState<"yes" | "maybe" | "no" | null>(null);
   const [closingChoice, setClosingChoice] = useState<string | null>(null);
@@ -124,10 +126,10 @@ function Index() {
   }
 
   function startOver() {
-    setStage("journal");
+    setStage("choice");
     setThemes([]);
     setTheme(null);
-    setStep("choice");
+    setStep("chat");
     setAnswer("");
     setAffirm(null);
     setClosingChoice(null);
@@ -135,9 +137,40 @@ function Index() {
     persist("");
   }
 
+  function handleBack() {
+    if (stage === "choice") {
+      setStage("welcome");
+    } else if (stage === "journal") {
+      setStage("choice");
+    } else if (stage === "explore") {
+      if (mode === "chat") {
+        setStage("choice");
+      } else {
+        setStage("map");
+      }
+    } else if (stage === "map") {
+      setStage("journal");
+    } else if (stage === "summary") {
+      if (mode === "chat") {
+        setStage("explore");
+        setStep("chat");
+      } else {
+        setStage("map");
+      }
+    } else if (stage === "reflections") {
+      setStage(returnStage === "reflections" ? "welcome" : returnStage);
+    }
+  }
+
+  function handleGoHome() {
+    setStage("welcome");
+  }
+
+  const showNav = stage !== "welcome";
+
   return (
     <Chrome
-      onGuidedReflection={() => setStage("journal")}
+      onGuidedReflection={() => setStage("choice")}
       onHome={() => setStage("welcome")}
       headerAction={
         <button
@@ -148,8 +181,42 @@ function Index() {
         </button>
       }
     >
+      {showNav && (
+        <div className="flex items-center gap-4 py-3 border-b border-line/35 mb-6 text-sm text-muted-ink">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer"
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+          <span className="text-line/60">|</span>
+          <button
+            onClick={handleGoHome}
+            className="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer"
+          >
+            <HomeIcon size={16} /> Home
+          </button>
+        </div>
+      )}
+
       {stage === "welcome" && (
-        <Welcome onStart={() => setStage("journal")} />
+        <Welcome onStart={() => setStage("choice")} />
+      )}
+
+      {stage === "choice" && (
+        <Choice
+          onSelect={(choice) => {
+            setMode(choice);
+            if (choice === "chat") {
+              setNickname("");
+              setStep("chat");
+              setStage("explore");
+              setTheme(SOMETHING_ELSE);
+            } else {
+              setStage("journal");
+            }
+          }}
+        />
       )}
 
       {stage === "journal" && (
@@ -187,7 +254,7 @@ function Index() {
           onStepChange={setStep}
           onSubmitAnswer={() => {
             if (!answer.trim()) return;
-            setStep("mirror");
+            setStep("insight");
           }}
           onAffirm={(value) => {
             setAffirm(value);
@@ -198,6 +265,11 @@ function Index() {
           onNew={startOver}
           onFinish={() => setStage("summary")}
           journal={journal}
+          onJournalChange={setJournal}
+          nickname={nickname}
+          onNicknameChange={setNickname}
+          mode={mode}
+          onThemeChange={setTheme}
         />
       )}
 
@@ -223,6 +295,57 @@ function Index() {
   );
 }
 
+/* ---------------------------------- Choice ------------------------------ */
+
+function Choice({ onSelect }: { onSelect: (choice: "chat" | "reflect") => void }) {
+  return (
+    <section className="py-14 sm:py-20">
+      <h2 className="jz jz-1 mt-2 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
+        How would you like to explore your day?
+      </h2>
+      <p className="mt-4 max-w-[50ch] text-sm text-muted-ink">
+        Choose to talk it through in an interactive guided conversation, or immediately write and get your reflection note.
+      </p>
+
+      <div className="mt-10 grid gap-6 max-w-[700px] md:grid-cols-2">
+        {/* Card 1: Chat */}
+        <button
+          onClick={() => onSelect("chat")}
+          className="flex flex-col text-left p-6 rounded-[20px] bg-card hover:bg-paper border border-line/50 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer hover:-translate-y-0.5 group"
+        >
+          <div className="size-10 rounded-full bg-ink text-ivory flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
+            <MessageSquareText size={20} className="stroke-[1.8]" />
+          </div>
+          <h3 className="font-display text-xl text-ink font-semibold">Talk it through</h3>
+          <p className="mt-2 text-xs text-muted-ink leading-relaxed">
+            Start a guided conversation. Name your nickname, share your day, and receive targeted, supportive questions to explore deeper.
+          </p>
+          <div className="mt-auto pt-6 flex items-center text-xs font-semibold text-ink gap-1 group-hover:gap-2 transition-all">
+            Start guided conversation <ArrowRight size={12} />
+          </div>
+        </button>
+
+        {/* Card 2: Direct Note */}
+        <button
+          onClick={() => onSelect("reflect")}
+          className="flex flex-col text-left p-6 rounded-[20px] bg-card hover:bg-paper border border-line/50 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer hover:-translate-y-0.5 group"
+        >
+          <div className="size-10 rounded-full bg-uncertain/20 text-uncertain flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
+            <Zap size={20} className="stroke-[1.8]" fill="currentColor" />
+          </div>
+          <h3 className="font-display text-xl text-ink font-semibold">Just reflect</h3>
+          <p className="mt-2 text-xs text-muted-ink leading-relaxed">
+            Skip the conversation entirely. Directly write your thoughts and retrieve the synthesized reflection, including insights and actions.
+          </p>
+          <div className="mt-auto pt-6 flex items-center text-xs font-semibold text-ink gap-1 group-hover:gap-2 transition-all">
+            Write & get reflection note <ArrowRight size={12} />
+          </div>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 /* ---------------------------------- 01 ---------------------------------- */
 
 function Welcome({ onStart }: { onStart: () => void }) {
@@ -231,13 +354,13 @@ function Welcome({ onStart }: { onStart: () => void }) {
       <div className="grid items-center gap-10 lg:grid-cols-12 lg:gap-6">
         <div className="lg:col-span-7">
           <p className="jz jz-1 text-[11px] uppercase tracking-[0.24em] text-muted-ink">
-            Journal · Understand · Explore · Act
+            Reflect · Understand · Explore · Act
           </p>
           <h1 className="jz jz-1 mt-6 max-w-[20ch] text-balance font-display text-6xl leading-[0.92] tracking-[-0.02em] sm:text-7xl">
             Understand your day.
           </h1>
           <p className="jz jz-2 mt-7 max-w-[42ch] text-pretty text-base text-muted-ink sm:text-lg">
-            Write freely. We'll help you make sense of what happened.
+            Explore your thoughts. We'll help you find clarity, patterns, and focus.
           </p>
           <div className="jz jz-3 mt-9 flex flex-wrap items-center gap-5">
             <button
@@ -301,13 +424,13 @@ function Journal({
       <div className="grid gap-10 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <p className="jz jz-1 text-[11px] uppercase tracking-[0.24em] text-challenge">
-            02 · Journal
+            02 · Reflection
           </p>
           <h2 className="jz jz-1 mt-5 max-w-[16ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
             How was your day?
           </h2>
           <p className="jz jz-2 mt-5 max-w-[34ch] text-pretty text-sm text-muted-ink">
-            Write about whatever is on your mind — the good, the difficult, the confusing, or
+            Express whatever is on your mind — the good, the difficult, the confusing, or
             anything that stayed with you today.
           </p>
           <div className="jz jz-3 mt-8 space-y-2.5 border-t border-line/70 pt-6 text-xs text-muted-ink">
@@ -315,7 +438,7 @@ function Journal({
               <span className="size-1.5 rounded-full bg-challenge" /> Private &amp; on this device
             </p>
             <p className="flex items-center gap-2">
-              <span className="size-1.5 rounded-full bg-uncertain" /> No scores, no questionnaires
+              <span className="size-1.5 rounded-full bg-uncertain" /> No scores, no pressure
             </p>
           </div>
         </div>
@@ -464,6 +587,11 @@ function Explore({
   onNew,
   onFinish,
   journal,
+  onJournalChange,
+  nickname,
+  onNicknameChange,
+  mode,
+  onThemeChange,
 }: {
   theme: Theme;
   step: ExploreStep;
@@ -479,20 +607,23 @@ function Explore({
   onNew: () => void;
   onFinish: () => void;
   journal: string;
+  onJournalChange: (v: string) => void;
+  nickname: string;
+  onNicknameChange: (v: string) => void;
+  mode: "chat" | "reflect";
+  onThemeChange: (t: Theme) => void;
 }) {
   const [chatHistory, setChatHistory] = useState<{ sender: "user" | "ai"; text: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [chatTurn, setChatTurn] = useState<1 | 2 | 3>(1);
-  const [hasChosenChat, setHasChosenChat] = useState<boolean | null>(null);
+  const [chatTurn, setChatTurn] = useState<number>(0);
 
   // Reset local states when theme changes
   useEffect(() => {
     setChatHistory([]);
     setChatInput("");
     setIsTyping(false);
-    setChatTurn(1);
-    setHasChosenChat(null);
+    setChatTurn(0);
   }, [theme.id]);
 
   // Safety keyword detector (Ideation / Crisis support)
@@ -531,13 +662,24 @@ function Explore({
   // Initialize chat when turning to "chat" step
   useEffect(() => {
     if (step === "chat" && chatHistory.length === 0) {
-      setChatHistory([{ sender: "ai", text: theme.question }]);
+      if (mode === "chat") {
+        setChatHistory([
+          {
+            sender: "ai",
+            text: "Hello! Before we begin, how would you like to be called? (Feel free to share a nickname or pseudonym!)",
+          },
+        ]);
+        setChatTurn(0);
+      } else {
+        setChatHistory([{ sender: "ai", text: theme.question }]);
+        setChatTurn(2);
+      }
     }
-  }, [step, theme, chatHistory.length]);
+  }, [step, mode, theme.question, chatHistory.length]);
 
-  // Push transcript to parent state
+  // Push transcript to parent state when turn transitions to final summary
   useEffect(() => {
-    if (chatTurn === 3 && chatHistory.length > 0) {
+    if (chatTurn === 4 && chatHistory.length > 0) {
       const transcript = chatHistory
         .map((msg) => `${msg.sender === "user" ? "You" : "MirrorMind"}: ${msg.text}`)
         .join("\n\n");
@@ -545,13 +687,54 @@ function Explore({
     }
   }, [chatTurn, chatHistory, onAnswer]);
 
-  function handleSelectChoice(choice: "chat" | "insight") {
-    if (choice === "chat") {
-      setHasChosenChat(true);
-      onStepChange("chat");
-    } else {
-      setHasChosenChat(false);
-      onStepChange("insight");
+  function advanceChat(msg: string) {
+    if (chatTurn === 0) {
+      // Nickname setup
+      onNicknameChange(msg);
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: `Nice to meet you, ${msg}! How was your day? Tell me about whatever is on your mind — the good, the difficult, the confusing, or anything that stayed with you.`,
+        },
+      ]);
+      setChatTurn(1);
+    } else if (chatTurn === 1) {
+      // Vent / thoughts capture
+      onJournalChange(msg);
+      const matched = analyzeJournal(msg);
+      const matchedTheme = matched.length ? matched[0] : SOMETHING_ELSE;
+      onThemeChange(matchedTheme);
+
+      const name = nickname || msg || "friend";
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: `Thank you for sharing that, ${name}. Based on what you said, I notice a theme of "${matchedTheme.title}" standing out.\n\n${matchedTheme.question}`,
+        },
+      ]);
+      setChatTurn(2);
+    } else if (chatTurn === 2) {
+      // Answer theme question, ask followup
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: theme.followup,
+        },
+      ]);
+      setChatTurn(3);
+    } else if (chatTurn === 3) {
+      // Answer followup, give synthesis
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: theme.chatMirror,
+        },
+      ]);
+      setChatTurn(4);
     }
   }
 
@@ -574,7 +757,7 @@ function Explore({
             text: "It sounds like you are going through an incredibly difficult time. Please consider reaching out to a professional, a doctor, or talking with your loved ones. You do not have to carry this alone. If you are in immediate distress, please contact a local crisis support line or helpline right away.",
           },
         ]);
-        setChatTurn(3);
+        setChatTurn(4);
       }, 1100);
       return;
     }
@@ -597,13 +780,7 @@ function Explore({
           setIsTyping(true);
           setTimeout(() => {
             setIsTyping(false);
-            if (chatTurn === 1) {
-              setChatHistory((prev) => [...prev, { sender: "ai", text: theme.followup }]);
-              setChatTurn(2);
-            } else if (chatTurn === 2) {
-              setChatHistory((prev) => [...prev, { sender: "ai", text: theme.chatMirror }]);
-              setChatTurn(3);
-            }
+            advanceChat(msg);
           }, 1200);
         }, 1800);
       }, 1000);
@@ -614,13 +791,7 @@ function Explore({
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-      if (chatTurn === 1) {
-        setChatHistory((prev) => [...prev, { sender: "ai", text: theme.followup }]);
-        setChatTurn(2);
-      } else if (chatTurn === 2) {
-        setChatHistory((prev) => [...prev, { sender: "ai", text: theme.chatMirror }]);
-        setChatTurn(3);
-      }
+      advanceChat(msg);
     }, 1200);
   }
 
@@ -628,91 +799,11 @@ function Explore({
   const showSafetyWarning =
     checkSafety(journal) || chatHistory.some((msg) => msg.sender === "user" && checkSafety(msg.text));
 
-  // CHOICE VIEW
-  if (step === "choice") {
-    return (
-      <section className="py-14 sm:py-20">
-        <div className="flex items-center justify-between gap-4">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-line ${toneText(theme.tone)}`}
-          >
-            <span className={`size-1.5 rounded-full ${toneBg(theme.tone)}`} />
-            Exploring · {theme.title}
-          </span>
-          <button
-            onClick={onBack}
-            className="text-xs text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
-          >
-            ← Back to reflection map
-          </button>
-        </div>
-
-        <h2 className="jz jz-1 mt-8 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
-          How would you like to explore this?
-        </h2>
-        <p className="mt-4 max-w-[50ch] text-sm text-muted-ink">
-          Choose to talk it through in an interactive guided conversation, or immediately view your compiled reflection note.
-        </p>
-
-        <div className="mt-8 grid gap-6 max-w-[700px] md:grid-cols-2">
-          {/* Card 1: Chat */}
-          <button
-            onClick={() => handleSelectChoice("chat")}
-            className="flex flex-col text-left p-6 rounded-[20px] bg-card hover:bg-paper border border-line/50 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer hover:-translate-y-0.5 group"
-          >
-            <div className="size-10 rounded-full bg-ink text-ivory flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
-              <MessageSquareText size={20} className="stroke-[1.8]" />
-            </div>
-            <h3 className="font-display text-xl text-ink font-semibold">Talk it through</h3>
-            <p className="mt-2 text-xs text-muted-ink leading-relaxed">
-              Start a brief interactive guided conversation. Share your raw feelings and receive targeted, supportive questions to explore deeper.
-            </p>
-            <div className="mt-auto pt-6 flex items-center text-xs font-semibold text-ink gap-1 group-hover:gap-2 transition-all">
-              Start guided conversation <ArrowRight size={12} />
-            </div>
-          </button>
-
-          {/* Card 2: Direct Note */}
-          <button
-            onClick={() => handleSelectChoice("insight")}
-            className="flex flex-col text-left p-6 rounded-[20px] bg-card hover:bg-paper border border-line/50 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer hover:-translate-y-0.5 group"
-          >
-            <div className="size-10 rounded-full bg-uncertain/20 text-uncertain flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
-              <Zap size={20} className="stroke-[1.8]" fill="currentColor" />
-            </div>
-            <h3 className="font-display text-xl text-ink font-semibold">Just reflect</h3>
-            <p className="mt-2 text-xs text-muted-ink leading-relaxed">
-              Skip the conversation entirely. Directly retrieve the synthesized reflection, including insights and a practical action step.
-            </p>
-            <div className="mt-auto pt-6 flex items-center text-xs font-semibold text-ink gap-1 group-hover:gap-2 transition-all">
-              View reflection note <ArrowRight size={12} />
-            </div>
-          </button>
-        </div>
-      </section>
-    );
-  }
-
   // INTERACTIVE CHAT VIEW
   if (step === "chat") {
     return (
-      <section className="py-14 sm:py-20">
-        <div className="flex items-center justify-between gap-4">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-line ${toneText(theme.tone)}`}
-          >
-            <span className={`size-1.5 rounded-full ${toneBg(theme.tone)}`} />
-            Exploring · {theme.title}
-          </span>
-          <button
-            onClick={onBack}
-            className="text-xs text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
-          >
-            ← Back to reflection map
-          </button>
-        </div>
-
-        <h2 className="jz jz-1 mt-8 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
+      <section className="py-10">
+        <h2 className="jz jz-1 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
           Interactive Conversation
         </h2>
 
@@ -728,7 +819,7 @@ function Explore({
                   }`}
                 >
                   <span className="text-[9px] uppercase tracking-wider text-muted-ink/80 mb-1 px-1">
-                    {msg.sender === "user" ? "User" : "MirrorMind"}
+                    {msg.sender === "user" ? (nickname || "User") : "MirrorMind"}
                   </span>
                   <div
                     className={`px-5 py-3.5 rounded-[18px] text-sm leading-relaxed ${
@@ -758,7 +849,7 @@ function Explore({
 
             {/* Input Bar */}
             <div className="mt-6 border-t border-line/50 pt-4">
-              {chatTurn < 3 ? (
+              {chatTurn < 4 ? (
                 <div className="flex gap-2 items-end">
                   <textarea
                     rows={2}
@@ -813,9 +904,9 @@ function Explore({
   // SYNTHESIS & INSIGHT VIEW
   if (step === "insight") {
     // Choice 1: Direct reflection note (clean, centered, 1 column)
-    if (hasChosenChat === false) {
+    if (mode === "reflect") {
       return (
-        <section className="py-14 sm:py-20">
+        <section className="py-10">
           <div className="max-w-[700px] mx-auto">
             <div className="flex items-center justify-between gap-4">
               <span
@@ -925,23 +1016,8 @@ function Explore({
 
     // Choice 2: Guided chat transcript visible (2 columns: left chat transcript, right summaries)
     return (
-      <section className="py-14 sm:py-20">
-        <div className="flex items-center justify-between gap-4">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-line ${toneText(theme.tone)}`}
-          >
-            <span className={`size-1.5 rounded-full ${toneBg(theme.tone)}`} />
-            Exploring · {theme.title}
-          </span>
-          <button
-            onClick={onBack}
-            className="text-xs text-muted-ink underline decoration-line underline-offset-4 hover:text-ink"
-          >
-            ← Back to reflection map
-          </button>
-        </div>
-
-        <h2 className="jz jz-1 mt-8 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
+      <section className="py-10">
+        <h2 className="jz jz-1 max-w-[24ch] text-balance font-display text-4xl leading-[1.05] tracking-[-0.01em]">
           Coaching Summary
         </h2>
 
@@ -1050,7 +1126,7 @@ function Explore({
                   className="text-sm text-ink underline decoration-line underline-offset-4 cursor-pointer"
                 >
                   Explore another theme
-                  </button>
+                </button>
                 <button
                   onClick={onNew}
                   className="text-sm text-muted-ink underline decoration-line underline-offset-4 hover:text-ink cursor-pointer"
