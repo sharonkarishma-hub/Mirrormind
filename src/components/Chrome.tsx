@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Brain } from "lucide-react";
 
 export function Chrome({ children, headerAction }: { children: ReactNode; headerAction?: ReactNode }) {
   return (
@@ -6,8 +7,8 @@ export function Chrome({ children, headerAction }: { children: ReactNode; header
       <div className="mx-auto flex min-h-screen max-w-[1180px] flex-col px-5 sm:px-8">
         <header className="flex items-center justify-between py-7">
           <div className="flex items-center gap-2.5">
-            <span className="grid size-7 place-items-center rounded-md bg-ink font-display text-[15px] text-ivory">
-              A
+            <span className="grid size-7 place-items-center rounded-md bg-ink text-ivory">
+              <Brain size={14} className="stroke-[1.8]" />
             </span>
             <span className="font-display text-[17px] tracking-tight">MirrorMind</span>
           </div>
